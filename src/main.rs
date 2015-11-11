@@ -116,10 +116,10 @@ impl Particle {
 
 fn main() {
     let height = 2;
-    let width = 50;
-    let length = 600;
-    let time_steps = 20;
-    let distribution = 0.5; // units per Particle
+    let width = 600;
+    let length = 50;
+    let time_steps = 50;
+    let distribution = 0.0; // units per Particle
     let mut field: Vec<Particle> = Vec::new();
     for z in 0..height {
         for x in 0..width {
@@ -134,6 +134,9 @@ fn main() {
         }
     }
 for frame in 0..time_steps {
+    if field.len() == 0 {
+        break;
+    }
     println!("time step: {}", frame);
     // Time Step
     for i in 0..field.len() {
@@ -144,7 +147,7 @@ for frame in 0..time_steps {
     let mut j = 0 as usize;
     loop {
         loop {
-            field[i] = field[i].bounds_check(height as f64, width as f64, length as f64);
+            field[i] = field[i].bounds_check(height as f64, width as f64, length as f64); 
             field[j] = field[j].bounds_check(height as f64, width as f64, length as f64);
             if field[i].did_collide(&field[j]) {
                 if field[i].will_stick(&field[j]) {
@@ -153,6 +156,7 @@ for frame in 0..time_steps {
                 }
                 else {
                     let (particle1, particle2) = field[i].elastic_collision(&field[j]);
+                  // println!("line 158");
                     field[i] = particle1;
                     field[j] = particle2;
 //                println!("Particle {} was hit by Particle {}", i, j);
@@ -174,6 +178,7 @@ for frame in 0..time_steps {
      
     let mut img = ImageBuffer::<Rgb<u8>>::new(width as u32, length as u32);
     for part in 0..field.len() {
+        println!("line 180");
         println!("part.x: {} part.y: {}", field[part].x, field[part].y);
         let to_draw_pix:Vec<(u32, u32)> = get_circle_pix((field[part].x as u32, field[part].y as u32), field[part].radius);
         for (x, y) in to_draw_pix {
