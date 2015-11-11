@@ -70,6 +70,7 @@ impl Particle {
         return rand > (self.element_type.stickiness + other.element_type.stickiness / 2.0);
     }
     fn sticky_collision(&self, other: &Particle) -> Particle {
+        let new_radius = (self.radius.powi(3) + other.radius.powi(3)).cbrt();
         return Particle {
             x: self.x,
             y: self.y,
@@ -77,7 +78,7 @@ impl Particle {
             vx: self.vx + other.vx,
             vy: self.vy + other.vy,
             vz: self.vz + other.vz,
-            radius: self.radius + (other.radius / 2.0),
+            radius: new_radius,
             element_type: Element {
                 stickiness: (self.element_type.stickiness + other.element_type.stickiness) / 2.0,
             },
@@ -86,17 +87,29 @@ impl Particle {
     fn bounds_check(self, height: f64, width: f64, length: f64) -> Particle{
         let mut return_particle:Particle = self.clone();
 
-        if self.z > height  || self.x < 0.0 {
+        if self.z > height {
            return_particle.z = height ;
             return_particle.vz = -self.vz;
         }
-        if self.y > length  || self.y < 0.0 {
+        if self.y > length {
             return_particle.y = length;
             return_particle.vy = -self.vy;
         }
-        if self.x > width  || self.x < 0.0 {
+        if self.x > width {
             return_particle.x = width;
             return_particle.vx = -self.vx;
+        }
+        if self.z < 0.0 {
+            return_particle.z = 0.0;
+            return_particle.vz = -self.vz;
+        }
+        if self.x < 0.0 {
+            return_particle.x = 0.0;
+            return_particle.vx = -self.vx;
+        }
+        if self.y < 0.0 {
+            return_particle.y = 0.0;
+            return_particle.vy = -self.vy;
         }
         return return_particle;
     }
@@ -115,11 +128,11 @@ impl Particle {
 }
 
 fn main() {
-    let height = 2;
-    let width = 600;
-    let length = 50;
-    let time_steps = 50;
-    let distribution = 0.0; // units per Particle
+    let height = 1;
+    let width = 1000;
+    let length = 1000;
+    let time_steps = 200;
+    let distribution = 0.98; // units per Particle
     let mut field: Vec<Particle> = Vec::new();
     for z in 0..height {
         for x in 0..width {
@@ -149,6 +162,9 @@ for frame in 0..time_steps {
         loop {
             field[i] = field[i].bounds_check(height as f64, width as f64, length as f64); 
             field[j] = field[j].bounds_check(height as f64, width as f64, length as f64);
+            if i == j {
+                break;
+            }
             if field[i].did_collide(&field[j]) {
                 if field[i].will_stick(&field[j]) {
                     field[i] = field[i].sticky_collision(&field[j]);
@@ -175,11 +191,9 @@ for frame in 0..time_steps {
         }
     }
     // Output map
-     
+    println!("drawing frame {}", frame); 
     let mut img = ImageBuffer::<Rgb<u8>>::new(width as u32, length as u32);
     for part in 0..field.len() {
-        println!("line 180");
-        println!("part.x: {} part.y: {}", field[part].x, field[part].y);
         let to_draw_pix:Vec<(u32, u32)> = get_circle_pix((field[part].x as u32, field[part].y as u32), field[part].radius);
         for (x, y) in to_draw_pix {
             if x < width as u32 && y < length as u32 {
@@ -193,8 +207,19 @@ for frame in 0..time_steps {
 }
 fn get_circle_pix((x1, y1): (u32, u32), radius: f64) -> Vec<(u32, u32)>{
     let mut return_vec:Vec<(u32, u32)> = Vec::new();
-    for x2 in (x1 - (radius as u32))..(x1 + (radius as u32)) {
-        for y2 in (y1 - (radius as u32))..(y1 + (radius as u32)) {
+    let mut lower_x:i32;
+    lower_x = radius as i32;
+    lower_x = x1 as i32 - lower_x;
+    if lower_x < 0 {
+        lower_x = 0;
+    }
+    let mut lower_y:i32;
+    lower_y = y1 as i32 - radius as i32;
+    if lower_y < 0 {
+        lower_y = 0;
+    }
+    for x2 in  lower_x as u32..(x1 + (radius as u32)) {
+        for y2 in lower_y as u32..(y1 + (radius as u32)) {
             if distance((x1, y1), (x2, y2)) < radius as u32 {
                 return_vec.push((x2, y2));
             }
