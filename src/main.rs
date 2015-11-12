@@ -10,7 +10,7 @@ impl Element {
     fn hydrogen() -> Element {
         return Element {
             // name: "hydrogen".to_string(),
-            stickiness: 0.5,
+            stickiness: 0.6,
         };
     }
 }
@@ -27,7 +27,7 @@ struct Particle {
     element_type: Element,
 }
 fn distance((x1, y1): (u32, u32), (x2, y2): (u32, u32)) -> u32 {
-    return (((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2))).sqrt() as u32;   
+    return (((x1 as f64 - x2 as f64).powi(2) + (y1 as f64 - y2 as f64).powi(2))).sqrt() as u32;
 }
 impl Particle {
     fn low_energy_particle(x: f64, y: f64, z: f64) -> Particle {
@@ -39,10 +39,10 @@ impl Particle {
             vx: rng.gen_range(-0.5, 0.5),
             vy: rng.gen_range(-0.5, 0.5),
             vz: rng.gen_range(-0.5, 0.5),
-            radius: rng.gen_range(0.3, 1.0),
+            radius: rng.gen_range(0.3, 1.4),
             element_type: Element::hydrogen(),
-        }
-        
+        };
+
     }
     fn time_step_return(&self) -> Particle {
         return Particle {
@@ -84,11 +84,11 @@ impl Particle {
             },
         };
     }
-    fn bounds_check(self, height: f64, width: f64, length: f64) -> Particle{
-        let mut return_particle:Particle = self.clone();
+    fn bounds_check(self, height: f64, width: f64, length: f64) -> Particle {
+        let mut return_particle: Particle = self.clone();
 
         if self.z > height {
-           return_particle.z = height ;
+            return_particle.z = height;
             return_particle.vz = -self.vz;
         }
         if self.y > length {
@@ -114,116 +114,128 @@ impl Particle {
         return return_particle;
     }
     fn elastic_collision(&self, other: &Particle) -> (Particle, Particle) {
-       let mut particle1 = self.clone();
-       particle1.vx = other.vx;
-       particle1.vy = other.vy;
-       particle1.vz = other.vz;
-       let mut particle2 = other.clone();
-       particle2.vx = self.vx;
-       particle2.vy = self.vy;
-       particle2.vz = self.vz;
-       return (particle1, particle2);
+        let mut particle1 = self.clone();
+        particle1.vx = other.vx;
+        particle1.vy = other.vy;
+        particle1.vz = other.vz;
+        let mut particle2 = other.clone();
+        particle2.vx = self.vx;
+        particle2.vy = self.vy;
+        particle2.vz = self.vz;
+        return (particle1, particle2);
     }
-    
+
 }
 
 fn main() {
     let height = 1;
     let width = 1000;
     let length = 1000;
-    let time_steps = 200;
-    let distribution = 0.98; // units per Particle
+//    let time_steps = 500;
+    let distribution = 0.92; // units per Particle
     let mut field: Vec<Particle> = Vec::new();
     for z in 0..height {
         for x in 0..width {
             for y in 0..length {
-                    let mut rng = thread_rng();
-                    let maybe = rng.gen_range(0.0, 1.0);
-                    if maybe > distribution {
+                let mut rng = thread_rng();
+                let maybe = rng.gen_range(0.0, 1.0);
+                if maybe > distribution {
                     field.push(Particle::low_energy_particle(x as f64, y as f64, z as f64));
-                    }
-                    
+                }
+
             }
         }
     }
-for frame in 0..time_steps {
+let mut frame = 0;
+//    for frame in 0..time_steps {
+loop {
     if field.len() == 0 {
-        break;
-    }
-    println!("time step: {}", frame);
-    // Time Step
-    for i in 0..field.len() {
-        field[i] = field[i].time_step_return();
-    }
-    // Check for collisions
-    let mut i = 0 as usize;
-    let mut j = 0 as usize;
-    loop {
-        loop {
-            field[i] = field[i].bounds_check(height as f64, width as f64, length as f64); 
-            field[j] = field[j].bounds_check(height as f64, width as f64, length as f64);
-            if i == j {
-                break;
-            }
-            if field[i].did_collide(&field[j]) {
-                if field[i].will_stick(&field[j]) {
-                    field[i] = field[i].sticky_collision(&field[j]);
-                    field.remove(j);
-                }
-                else {
-                    let (particle1, particle2) = field[i].elastic_collision(&field[j]);
-                  // println!("line 158");
-                    field[i] = particle1;
-                    field[j] = particle2;
-//                println!("Particle {} was hit by Particle {}", i, j);
-                }
-             }
-           // println!("Particle {} was not hit by Particle {}", i, j);
-            j = j + 1;
-            if j >= field.len() || i >= field.len() {
-                break;
-            }
-        }
-        j = 0 as usize;
-        i = i + 1;
-        if i >= field.len() || j >= field.len() {
             break;
         }
-    }
-    // Output map
-    println!("drawing frame {}", frame); 
-    let mut img = ImageBuffer::<Rgb<u8>>::new(width as u32, length as u32);
-    for part in 0..field.len() {
-        let to_draw_pix:Vec<(u32, u32)> = get_circle_pix((field[part].x as u32, field[part].y as u32), field[part].radius);
-        for (x, y) in to_draw_pix {
-            if x < width as u32 && y < length as u32 {
-            img.get_pixel_mut(x, y).data = [255, 255, 255];
-            }
-        }    
+        println!("time step: {}", frame);
+        // Time Step
+        for i in 0..field.len() {
+            field[i] = field[i].time_step_return();
         }
-    img.save(format!("frame{}_output.png", frame)).unwrap();
-    }    
+        // Check for collisions
+        let mut i = 0 as usize;
+        let mut j = 0 as usize;
+        loop {
+            loop {
+                field[i] = field[i].bounds_check(height as f64, width as f64, length as f64);
+                field[j] = field[j].bounds_check(height as f64, width as f64, length as f64);
+                if i == j {
+                    break;
+                }
+                if field[i].did_collide(&field[j]) {
+                    if field[i].will_stick(&field[j]) {
+                        field[i] = field[i].sticky_collision(&field[j]);
+                        field.remove(j);
+                    } else {
+                        let (particle1, particle2) = field[i].elastic_collision(&field[j]);
+                        // println!("line 158");
+                        field[i] = particle1;
+                        field[j] = particle2;
+                        // println!("Particle {} was hit by Particle {}", i, j);
+                    }
+                }
+                // println!("Particle {} was not hit by Particle {}", i, j);
+                j = j + 1;
+                if j >= field.len() || i >= field.len() {
+                    break;
+                }
+            }
+            j = 0 as usize;
+            i = i + 1;
+            if i >= field.len() || j >= field.len() {
+                break;
+            }
+        }
+        // Output map
+        println!("drawing frame {}", frame);
+        let mut img = ImageBuffer::<Rgb<u8>>::new(width as u32, length as u32);
+        for part in 0..field.len() {
+            let x1 = field[part].x as u32;
+            let y1 = field[part].y as u32;
+            let radius = field[part].radius;
+            let mut lower_x = x1 as i32 - radius as i32;
+            if lower_x < 0 {
+                lower_x = 0;
+            }
+            let mut lower_y = y1 as i32 - radius as i32;
+            if lower_y < 0 {
+                lower_y = 0;
+            }
+            for x2 in lower_x as u32..(x1 + (radius as u32)) {
+                for y2 in lower_y as u32..(y1 + (radius as u32)) {
+                    if distance((x1, y1), (x2, y2)) < radius as u32 {
 
-}
-fn get_circle_pix((x1, y1): (u32, u32), radius: f64) -> Vec<(u32, u32)>{
-    let mut return_vec:Vec<(u32, u32)> = Vec::new();
-    let mut lower_x:i32;
-    lower_x = radius as i32;
-    lower_x = x1 as i32 - lower_x;
-    if lower_x < 0 {
-        lower_x = 0;
-    }
-    let mut lower_y:i32;
-    lower_y = y1 as i32 - radius as i32;
-    if lower_y < 0 {
-        lower_y = 0;
-    }
-    for x2 in  lower_x as u32..(x1 + (radius as u32)) {
-        for y2 in lower_y as u32..(y1 + (radius as u32)) {
-            if distance((x1, y1), (x2, y2)) < radius as u32 {
-                return_vec.push((x2, y2));
+                        if x2 < width as u32 && y2 < length as u32 {
+                            img.get_pixel_mut(x2, y2).data = [255, 255, 255];
+                        }
+                    }
+                }
             }
         }
+        img.save(format!("frame{}_output.png", frame)).unwrap();
+    frame = frame + 1;
     }
-    return return_vec;
 }
+
+
+//
+// fn format_number(num: i32) -> String {
+// match num {
+// _ < 10      => return format!("00000000{}", num),
+// < 100     => return format!("0000000{}", num),
+// < 1000    => return format!("000000{}". num),
+// < 10000   => return format!("00000{}", num),
+// < 100000  => return format!("0000{}", num),
+// < 1000000 => return format!("000{}", num),
+// _ => {
+// println!("overflowed number, returning unformatted frame number");
+// return format!("{}", num);
+// },
+// }
+// }
+//
