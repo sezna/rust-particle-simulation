@@ -1,7 +1,7 @@
 extern crate image;
 extern crate rand;
 use std::thread;
-use std::sync::Arc;
+//use std::sync::Arc;
 use image::{ImageBuffer, Rgb};
 use rand::{thread_rng, Rng};
 #[derive(Copy, Clone)]
@@ -131,8 +131,8 @@ impl Particle {
 
 fn main() {
     let height = 1;
-    let width = 10;
-    let length = 10;
+    let width = 1000;
+    let length = 1000;
 //    let time_steps = 500;
     let distribution = 0.92; // units per Particle
     let mut field: Vec<Particle> = Vec::new();
@@ -223,7 +223,7 @@ loop {
                 }
             }
         }
-        img.save(format!("frame{}_output.png", frame_number)).unwrap();
+        img.save(format!("frame{:09}_output.png", frame_number)).unwrap();
         return;
         };
      /*   let closure = |particles: Vec<Particle>, frame_number: i32, width_local:i32,
