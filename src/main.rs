@@ -1,7 +1,6 @@
 extern crate image;
 extern crate rand;
 use std::thread;
-//use std::sync::Arc;
 use image::{ImageBuffer, Rgb};
 use rand::{thread_rng, Rng};
 #[derive(Copy, Clone)]
@@ -133,7 +132,6 @@ fn main() {
     let height = 1;
     let width = 1000;
     let length = 1000;
-//    let time_steps = 500;
     let distribution = 0.92; // units per Particle
     let mut field: Vec<Particle> = Vec::new();
     for z in 0..height {
@@ -149,7 +147,6 @@ fn main() {
         }
     }
 let mut frame = 0;
-//    for frame in 0..time_steps {
 loop {
     if field.len() == 0 {
             break;
@@ -177,7 +174,6 @@ loop {
                         field.remove(j);
                     } else {
                         let (particle1, particle2) = field[i].elastic_collision(&field[j]);
-                        // println!("line 158");
                         field[i] = particle1;
                         field[j] = particle2;
                         // println!("Particle {} was hit by Particle {}", i, j);
@@ -203,7 +199,6 @@ loop {
         for (x, y, radius)  in particles { 
             let x1 = x as u32;
             let y1 = y as u32;
-           // let radius = part.radius;
             let mut lower_x = x1 as i32 - radius as i32;
             if lower_x < 0 {
                 lower_x = 0;
@@ -226,29 +221,8 @@ loop {
         img.save(format!("frame{:09}_output.png", frame_number)).unwrap();
         return;
         };
-     /*   let closure = |particles: Vec<Particle>, frame_number: i32, width_local:i32,
-        length_local:i32| {
-            closurefunc(particles, frame_number,  width_local, length_local);
-        }; */ 
         thread::spawn(move || closurefunc(particle_coords, frame, width, length));
     frame = frame + 1;
     }
 }
 
-
-//
-// fn format_number(num: i32) -> String {
-// match num {
-// _ < 10      => return format!("00000000{}", num),
-// < 100     => return format!("0000000{}", num),
-// < 1000    => return format!("000000{}". num),
-// < 10000   => return format!("00000{}", num),
-// < 100000  => return format!("0000{}", num),
-// < 1000000 => return format!("000{}", num),
-// _ => {
-// println!("overflowed number, returning unformatted frame number");
-// return format!("{}", num);
-// },
-// }
-// }
-//
