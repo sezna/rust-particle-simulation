@@ -4,6 +4,29 @@ use image::{ImageBuffer, Rgb};
 use rand::{thread_rng, Rng};
 use std::thread;
 
+
+#[derive(Clone)]
+struct Point {
+    x: f64,
+    y: f64,
+    z: f64
+}
+
+impl Point {
+    fn add(&self, other: &Point) -> Point {
+        Point {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z
+        }
+    }
+}
+
+struct Mass<'a> {
+    particles: Vec<&'a Particle>,
+    central_of_gravity: Point
+}
+
 #[derive(Clone)]
 struct Element {
     stickiness: f64,
@@ -27,9 +50,18 @@ impl Element {
             color: [0, 255, 0],
         };
     }
+
+    fn carbon() -> Element {
+        return Element {
+            name: String::from("carbon"),
+            stickiness: 0.34,
+            color: [0, 0, 255]
+        }
+    }
 }
 
-// TODO factor out into point_3d
+// TODO 
+// convert f64s to u64s (?)
 // make combine names function
 // utils dir, color struct
 // redo image making, it currently is really slow
@@ -40,12 +72,8 @@ impl Element {
 // maybe make combined particles not a circle? like stick to the outside?
 #[derive(Clone)]
 struct Particle {
-    x: f64,
-    y: f64,
-    z: f64,
-    vx: f64,
-    vy: f64,
-    vz: f64,
+    position: Point,
+    velocity: Point,
     radius: f64,
     element: Element,
 }
@@ -68,12 +96,16 @@ impl Particle {
     fn low_energy_hydrogen(x: f64, y: f64, z: f64) -> Particle {
         let mut rng = thread_rng();
         return Particle {
-            x: x,
-            y: y,
-            z: z,
-            vx: rng.gen_range(-0.5, 0.5),
-            vy: rng.gen_range(-0.5, 0.5),
-            vz: rng.gen_range(-0.5, 0.5),
+            position: Point {
+                x: x,
+                y: y,
+                z: z,
+            },
+            velocity: Point {
+                x: rng.gen_range(-0.5, 0.5),
+                y: rng.gen_range(-0.5, 0.5),
+                z: rng.gen_range(-0.5, 0.5),
+            },
             radius: rng.gen_range(3.3, 5.4),
             element: Element::hydrogen(),
         };
@@ -82,47 +114,52 @@ impl Particle {
     fn low_energy_oxygen(x: f64, y: f64, z: f64) -> Particle {
         let mut rng = thread_rng();
         return Particle {
-            x: x,
-            y: y,
-            z: z,
-            vx: rng.gen_range(-0.5, 0.5),
-            vy: rng.gen_range(-0.5, 0.5),
-            vz: rng.gen_range(-0.5, 0.5),
+            position: Point {
+                x: x,
+                y: y,
+                z: z,
+            },
+            velocity: Point {
+                x: rng.gen_range(-0.5, 0.5),
+                y: rng.gen_range(-0.5, 0.5),
+                z: rng.gen_range(-0.5, 0.5),
+            },
             radius: rng.gen_range(3.3, 5.4),
             element: Element::oxygen(),
         };
     }
 
-    fn high_energy_oxygen(x: f64, y: f64, z: f64) -> Particle {
+    fn low_energy_carbon(x: f64, y: f64, z: f64) -> Particle {
         let mut rng = thread_rng();
         return Particle {
-            x: x,
-            y: y,
-            z: z,
-            vx: rng.gen_range(-10.5, 10.5),
-            vy: rng.gen_range(-10.5, 10.5),
-            vz: rng.gen_range(-10.5, 10.5),
-            radius: rng.gen_range(0.3, 3.4),
-            element: Element::oxygen(),
+            position: Point {
+                x: x,
+                y: y,
+                z: z,
+            },
+            velocity: Point {
+                x: rng.gen_range(-0.5, 0.5),
+                y: rng.gen_range(-0.5, 0.5),
+                z: rng.gen_range(-0.5, 0.5),
+            },
+            radius: rng.gen_range(3.3, 5.4),
+            element: Element::carbon(),
         };
     }
 
+
     fn time_step_return(&self) -> Particle {
         return Particle {
-            x: self.x + self.vx,
-            y: self.y + self.vy,
-            z: self.z + self.vz,
-            vx: self.vx,
-            vy: self.vy,
-            vz: self.vz,
+            position: self.position.add(&self.velocity),
+            velocity: self.velocity.clone(),
             radius: self.radius,
             element: self.element.clone(),
         };
     }
     fn distance(&self, other: &Particle) -> f64 {
-        return ((other.x - self.x).powi(2)
-            + (other.y - self.y).powi(2)
-            + (other.z - self.z).powi(2))
+        return ((other.position.x - self.position.x).powi(2)
+            + (other.position.y - self.position.y).powi(2)
+            + (other.position.z - self.position.z).powi(2))
         .sqrt();
     }
     fn did_collide(&self, other: &Particle) -> bool {
@@ -136,12 +173,8 @@ impl Particle {
     fn sticky_collision(&self, other: &Particle) -> Particle {
         let new_radius = (self.radius.powi(3) + other.radius.powi(3)).cbrt();
         return Particle {
-            x: self.x,
-            y: self.y,
-            z: self.z,
-            vx: self.vx + other.vx,
-            vy: self.vy + other.vy,
-            vz: self.vz + other.vz,
+            position: self.position.clone(),
+            velocity: self.velocity.add(&other.velocity),
             radius: new_radius,
             element: Element {
                 name: format!("{}-{}", self.element.name, other.element.name),
@@ -154,41 +187,41 @@ impl Particle {
     fn bounds_check(&self, height: f64, width: f64, length: f64) -> Particle {
         let mut return_particle: Particle = self.clone();
 
-        if self.z > height {
-            return_particle.z = height;
-            return_particle.vz = -self.vz;
+        if self.position.z > height {
+            return_particle.position.z = height;
+            return_particle.velocity.z = -self.velocity.z;
         }
-        if self.y > length {
-            return_particle.y = length;
-            return_particle.vy = -self.vy;
+        if self.position.y > length {
+            return_particle.position.y = length;
+            return_particle.velocity.y = -self.velocity.y;
         }
-        if self.x > width {
-            return_particle.x = width;
-            return_particle.vx = -self.vx;
+        if self.position.x > width {
+            return_particle.position.x = width;
+            return_particle.velocity.x = -self.velocity.x;
         }
-        if self.z < 0.0 {
-            return_particle.z = 0.0;
-            return_particle.vz = -self.vz;
+        if self.position.z < 0.0 {
+            return_particle.position.z = 0.0;
+            return_particle.velocity.z = -self.velocity.z;
         }
-        if self.x < 0.0 {
-            return_particle.x = 0.0;
-            return_particle.vx = -self.vx;
+        if self.position.x < 0.0 {
+            return_particle.position.x = 0.0;
+            return_particle.velocity.x = -self.velocity.x;
         }
-        if self.y < 0.0 {
-            return_particle.y = 0.0;
-            return_particle.vy = -self.vy;
+        if self.position.y < 0.0 {
+            return_particle.position.y = 0.0;
+            return_particle.velocity.y = -self.velocity.y;
         }
         return return_particle;
     }
     fn elastic_collision(&self, other: &Particle) -> (Particle, Particle) {
         let mut particle1 = self.clone();
-        particle1.vx = other.vx;
-        particle1.vy = other.vy;
-        particle1.vz = other.vz;
+        particle1.velocity.x = other.velocity.x;
+        particle1.velocity.y = other.velocity.y;
+        particle1.velocity.z = other.velocity.z;
         let mut particle2 = other.clone();
-        particle2.vx = self.vx;
-        particle2.vy = self.vy;
-        particle2.vz = self.vz;
+        particle2.velocity.x = self.velocity.x;
+        particle2.velocity.y = self.velocity.y;
+        particle2.velocity.z = self.velocity.z;
         return (particle1, particle2);
     }
 }
@@ -210,8 +243,11 @@ fn main() {
                     // We are adding a particle, but now we see which kind.
                     if which_particle < 0.4 {
                         field.push(Particle::low_energy_hydrogen(x as f64, y as f64, z as f64));
-                    } else {
+                    } else if which_particle < 0.8 {
                         field.push(Particle::low_energy_oxygen(x as f64, y as f64, z as f64));
+                    }
+                    else {
+                        field.push(Particle::low_energy_carbon(x as f64, y as f64, z as f64));
                     }
                 }
             }
@@ -233,7 +269,7 @@ fn main() {
         let mut i = 0 as usize;
         let mut j = 0 as usize;
         loop {
-            particle_coords.push((field[i].x as i32, field[i].y as i32, field[i].radius, field[i].element.color));
+            particle_coords.push((field[i].position.x as i32, field[i].position.y as i32, field[i].radius, field[i].element.color));
             loop {
                 field[i] = field[i].bounds_check(height as f64, width as f64, length as f64);
                 field[j] = field[j].bounds_check(height as f64, width as f64, length as f64);
