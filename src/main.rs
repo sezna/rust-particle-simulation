@@ -6,7 +6,7 @@ mod element;
 mod particle;
 
 
-
+use point::Point;
 use particle::Particle;
 use image::{ImageBuffer, Rgb};
 use rand::{thread_rng, Rng};
@@ -19,7 +19,9 @@ fn distance((x1, y1): (u32, u32), (x2, y2): (u32, u32)) -> u32 {
 }
 
 // TODO 
+// fractured collisions, make things break apar
 // acceleration can degrade unless there's jerk, which should degrade
+// adda ccel to struct - BLOCKING
 // velocity shouldn't just swap
 // convert f64s to u64s (?)
 // make combine names function
@@ -38,6 +40,16 @@ fn main() {
     let length = 1000;
     let distribution = 0.98; // units per Particle
     let mut field: Vec<Particle> = Vec::new();
+    let mut particle_one = Particle::low_energy_oxygen(100f64, 200f64, 300f64);
+    let mut particle_two = Particle::low_energy_hydrogen(500f64, 100f64, 700f64);
+
+    particle_one.radius = 80f64;
+    particle_one.velocity = Point { x: 0.0, y: 0.0, z: 0.0 };
+    particle_two.radius = 80f64;
+    particle_two.velocity = Point { x: 0.0, y: 0.0, z: 0.0 };
+    field.push(particle_one);
+    field.push(particle_two);
+    /*
     for z in 0..height {
         println!("height: {}", z);
         for x in 0..width {
@@ -59,22 +71,20 @@ fn main() {
             }
         }
     }
+    */
     let mut frame = 0;
-    loop {
-        if field.len() < 5 || frame == 500  {
-            println!("breaking: {} {}", field.len(), frame);
-            break;
-        }
+    while (field.len() > 1 && frame < 200) {
         println!("time step: {}", frame);
         // Time Step
-        for i in 0..field.len() {
-            field[i] = field[i].time_step_return();
-        }
+        field = field.iter().map(|x| x.time_step_return(height as f64, width as f64, length as f64)).collect();
+
+
         // Check for collisions
         let mut particle_coords: Vec<(i32, i32, f64, [u8; 3])> = Vec::new();
         let mut i = 0 as usize;
         let mut j = 0 as usize;
         loop {
+            let mut to_remove:Vec<usize> = Vec::new();
             particle_coords.push((field[i].position.x as i32, field[i].position.y as i32, field[i].radius, field[i].element.color));
             loop {
                 field[i] = field[i].bounds_check(height as f64, width as f64, length as f64);
@@ -85,7 +95,7 @@ fn main() {
                 if field[i].did_collide(&field[j]) {
                     if field[i].will_stick(&field[j]) {
                         field[i] = field[i].sticky_collision(&field[j]);
-                        field.remove(j);
+                        to_remove.push(j);
                     } else {
                         let (particle1, particle2) = field[i].elastic_collision(&field[j]);
                         field[i] = particle1;
@@ -93,11 +103,18 @@ fn main() {
                         // println!("Particle {} was hit by Particle {}", i, j);
                     }
                 }
+                // gravity
+                field[i] = field[i].gravitate(&field[j]);
+
+
                 // println!("Particle {} was not hit by Particle {}", i, j);
                 j = j + 1;
                 if j >= field.len() || i >= field.len() {
                     break;
                 }
+            }
+            for ind in to_remove {
+                field.remove(ind);
             }
             j = 0 as usize;
             i = i + 1;

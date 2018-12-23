@@ -1,7 +1,7 @@
 // TODO make an element either a pure one or a combined formula
 
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Element {
     pub stickiness: f64,
     pub name: String,

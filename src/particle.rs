@@ -2,10 +2,12 @@ use super::element::Element;
 use super::point::Point;
 use rand::{thread_rng, Rng};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Particle {
     pub position: Point,
     pub velocity: Point,
+    pub acceleration: Point,
+    gravitational_acceleration: Point,
     pub radius: f64,
     pub element: Element,
 }
@@ -20,8 +22,13 @@ fn average_color(color_one: [u8; 3], color_two: [u8; 3]) -> [u8; 3] {
    ];
 }
 
+// TODO change f64 coords to u64
+// use default constructors
+// max speed constant
+// friction constant
+
 impl Particle {
-    pub fn low_energy_hydrogen(x: f64, y: f64, z: f64) -> Particle {
+    fn random_particle(x: f64, y: f64, z:f64) -> Particle {
         let mut rng = thread_rng();
         return Particle {
             position: Point {
@@ -33,57 +40,49 @@ impl Particle {
                 x: rng.gen_range(-0.5, 0.5),
                 y: rng.gen_range(-0.5, 0.5),
                 z: rng.gen_range(-0.5, 0.5),
+            },
+            acceleration: Point {
+                x: 0f64,
+                y: 0f64,
+                z: 0f64
+            },
+            gravitational_acceleration: Point {
+                x: 0f64,
+                y: 0f64,
+                z: 0f64,
             },
             radius: rng.gen_range(3.3, 5.4),
             element: Element::hydrogen(),
         };
     }
+    pub fn low_energy_hydrogen(x: f64, y: f64, z: f64) -> Particle {
+        Particle::random_particle(x, y, z)
+    }
 
     pub fn low_energy_oxygen(x: f64, y: f64, z: f64) -> Particle {
-        let mut rng = thread_rng();
-        return Particle {
-            position: Point {
-                x: x,
-                y: y,
-                z: z,
-            },
-            velocity: Point {
-                x: rng.gen_range(-0.5, 0.5),
-                y: rng.gen_range(-0.5, 0.5),
-                z: rng.gen_range(-0.5, 0.5),
-            },
-            radius: rng.gen_range(3.3, 5.4),
-            element: Element::oxygen(),
-        };
+        let mut part = Particle::random_particle(x, y, z);
+        part.element = Element::oxygen();
+        return part;
     }
 
     pub fn low_energy_carbon(x: f64, y: f64, z: f64) -> Particle {
-        let mut rng = thread_rng();
-        return Particle {
-            position: Point {
-                x: x,
-                y: y,
-                z: z,
-            },
-            velocity: Point {
-                x: rng.gen_range(-0.5, 0.5),
-                y: rng.gen_range(-0.5, 0.5),
-                z: rng.gen_range(-0.5, 0.5),
-            },
-            radius: rng.gen_range(3.3, 5.4),
-            element: Element::carbon(),
-        };
+        let mut part = Particle::random_particle(x, y, z);
+        part.element = Element::carbon();
+        return part;
     }
 
-    
 
-    pub fn time_step_return(&self) -> Particle {
-        return Particle {
-            position: self.position.add(&self.velocity),
-            velocity: self.velocity.clone(),
-            radius: self.radius,
-            element: self.element.clone(),
-        };
+    pub fn time_step_return(&self, height: f64, width: f64, length: f64) -> Particle {
+        let mut to_return = self.clone();
+        to_return.position = self.position.add(&self.velocity);
+        to_return.velocity = self.velocity.add(&self.acceleration).add(&self.gravitational_acceleration);
+        if to_return.velocity.x > 5f64 { to_return.velocity.x = 5f64; }
+        if to_return.velocity.y > 5f64 { to_return.velocity.y = 5f64; }
+        if to_return.velocity.z > 5f64 { to_return.velocity.z = 5f64; }
+        if to_return.velocity.x < -5f64 { to_return.velocity.x = -5f64; }
+        if to_return.velocity.y < -5f64 { to_return.velocity.y = -5f64; }
+        if to_return.velocity.z < -5f64 { to_return.velocity.z = -5f64; }
+        return to_return.bounds_check(height, width, length);
     }
     pub fn distance(&self, other: &Particle) -> f64 {
         return ((other.position.x - self.position.x).powi(2)
@@ -99,12 +98,15 @@ impl Particle {
         let rand: f64 = rng.gen_range(0.0, 1.0);
         return rand > (self.element.stickiness + other.element.stickiness / 2.0);
     }
+
     pub fn sticky_collision(&self, other: &Particle) -> Particle {
         let new_radius = (self.radius.powi(3) + other.radius.powi(3)).cbrt();
         return Particle {
             position: if self.radius > other.radius { self.position.clone() } else { other.position.clone() },
             velocity: self.velocity.add(&other.velocity),
             radius: new_radius,
+            acceleration: self.acceleration.add(&other.acceleration),
+            gravitational_acceleration: self.gravitational_acceleration.add(&other.gravitational_acceleration),
             element: Element {
                 name: format!("{}-{}", self.element.name, other.element.name),
                 stickiness: (self.element.stickiness + other.element.stickiness) / 2.0,
@@ -153,4 +155,36 @@ impl Particle {
         particle2.velocity.z = self.velocity.z;
         return (particle1, particle2);
     }
+
+    // Calculates gravity that other exerts on self.
+    pub fn gravitate(&self, other: &Particle) -> Particle  {
+        let grav_const = 1000f64;
+        
+        let x_dist = other.position.x - self.position.x;
+        let y_dist = other.position.y - self.position.y;
+        let z_dist = other.position.z - self.position.z;
+
+
+        let g_x = grav_const * (other.radius) * (x_dist) / self.distance(other).powi(3);
+        let g_y = grav_const * (other.radius) * (y_dist) / self.distance(other).powi(3);
+        let g_z = grav_const * (other.radius) * (z_dist) / self.distance(other).powi(3);
+
+        let accel_point = Point {
+         x: g_x,
+         y: g_y,
+         z: g_z
+        };
+
+        return Particle {
+            position: self.position.clone(),
+            velocity: self.velocity.clone(),
+            acceleration: self.acceleration.clone(),
+            gravitational_acceleration: accel_point,
+            radius: self.radius.clone(),
+            element: self.element.clone()
+        };
+
+    }
+
+
 }
