@@ -4,7 +4,7 @@ mod point;
 mod mass;
 mod element;
 mod particle;
-
+mod particle_field;
 
 use point::Point;
 use particle::Particle;
@@ -21,8 +21,6 @@ fn distance((x1, y1): (u32, u32), (x2, y2): (u32, u32)) -> u32 {
 // TODO 
 // fractured collisions, make things break apar
 // acceleration can degrade unless there's jerk, which should degrade
-// adda ccel to struct - BLOCKING
-// velocity shouldn't just swap
 // convert f64s to u64s (?)
 // make combine names function
 // utils dir, color struct
@@ -36,20 +34,17 @@ fn distance((x1, y1): (u32, u32), (x2, y2): (u32, u32)) -> u32 {
 
 fn main() {
     let height = 1;
-    let width = 1000;
-    let length = 1000;
-    let distribution = 0.98; // units per Particle
+    let width = 900;
+    let length = 900;
+    let distribution = 0.9999; // units per Particle
     let mut field: Vec<Particle> = Vec::new();
-    let mut particle_one = Particle::low_energy_oxygen(100f64, 200f64, 300f64);
-    let mut particle_two = Particle::low_energy_hydrogen(500f64, 100f64, 700f64);
+    let mut particle_one = Particle::low_energy_oxygen(450f64, 450f64, 0f64);
 
     particle_one.radius = 80f64;
     particle_one.velocity = Point { x: 0.0, y: 0.0, z: 0.0 };
-    particle_two.radius = 80f64;
-    particle_two.velocity = Point { x: 0.0, y: 0.0, z: 0.0 };
+    particle_one.density = 10000f64;
     field.push(particle_one);
-    field.push(particle_two);
-    /*
+
     for z in 0..height {
         println!("height: {}", z);
         for x in 0..width {
@@ -71,9 +66,9 @@ fn main() {
             }
         }
     }
-    */
+    println!("Size of particle field: {}", field.len());
     let mut frame = 0;
-    while (field.len() > 1 && frame < 200) {
+    while (field.len() > 1 && frame < 500) {
         println!("time step: {}", frame);
         // Time Step
         field = field.iter().map(|x| x.time_step_return(height as f64, width as f64, length as f64)).collect();
@@ -84,7 +79,6 @@ fn main() {
         let mut i = 0 as usize;
         let mut j = 0 as usize;
         loop {
-            let mut to_remove:Vec<usize> = Vec::new();
             particle_coords.push((field[i].position.x as i32, field[i].position.y as i32, field[i].radius, field[i].element.color));
             loop {
                 field[i] = field[i].bounds_check(height as f64, width as f64, length as f64);
@@ -95,7 +89,7 @@ fn main() {
                 if field[i].did_collide(&field[j]) {
                     if field[i].will_stick(&field[j]) {
                         field[i] = field[i].sticky_collision(&field[j]);
-                        to_remove.push(j);
+                        field.remove(j);
                     } else {
                         let (particle1, particle2) = field[i].elastic_collision(&field[j]);
                         field[i] = particle1;
@@ -104,6 +98,7 @@ fn main() {
                     }
                 }
                 // gravity
+                field[i].acceleration = Point {x: 0f64, y: 0f64, z: 0f64};
                 field[i] = field[i].gravitate(&field[j]);
 
 
@@ -112,9 +107,6 @@ fn main() {
                 if j >= field.len() || i >= field.len() {
                     break;
                 }
-            }
-            for ind in to_remove {
-                field.remove(ind);
             }
             j = 0 as usize;
             i = i + 1;
